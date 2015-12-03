@@ -545,6 +545,7 @@ class Attachment
         }
 
         $deferAllExcept = (array) $this->defer_all_except;
+        $deferAllExcept[] = 'original';
 
         // Filter out styles that should be defered
         $this->queuedForWrite = array_filter($this->styles, function ($style) use ($deferAllExcept) {
