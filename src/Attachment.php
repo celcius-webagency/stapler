@@ -388,13 +388,15 @@ class Attachment
     /**
      * Rebuilds the images for this attachment.
      */
-    public function reprocess()
+    public function reprocess($styles = [])
     {
         if (!$this->originalFilename()) {
             return;
         }
 
-        foreach ($this->styles as $style) {
+        $styles = $styles ? (array) $styles : $this->styles;
+
+        foreach ($styles as $style) {
             $fileLocation = $this->storage == 'filesystem' ? $this->path('original') : $this->url('original');
             $file = FileFactory::create($fileLocation);
 
