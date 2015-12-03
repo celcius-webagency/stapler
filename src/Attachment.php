@@ -537,7 +537,17 @@ class Attachment
      */
     protected function queueAllForWrite()
     {
-        $this->queuedForWrite = $this->styles;
+        // No styles should be defered
+        if (!$this->defer_all_except) {
+            return $this->queuedForWrite = $this->styles;
+        }
+
+        $deferAllExcept = (array) $this->defer_all_except;
+
+        // Filter out styles that should be defered
+        $this->queuedForWrite = array_filter($this->styles, function ($style) use ($deferAllExcept) {
+            return in_array($style->name, $deferAllExcept);
+        });
     }
 
     /**
