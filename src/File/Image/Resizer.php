@@ -2,14 +2,15 @@
 
 namespace Codesleeve\Stapler\File\Image;
 
-use Codesleeve\Stapler\File\FileInterface;
-use Codesleeve\Stapler\Style;
+use Codesleeve\Stapler\Interfaces\Resizer as ResizerInterface;
+use Codesleeve\Stapler\Interfaces\File as FileInterface;
+use Codesleeve\Stapler\Interfaces\Style as StyleInterface;
 use Imagine\Image\ImagineInterface;
 use Imagine\Image\ImageInterface;
 use Imagine\Image\Box;
 use Imagine\Image\Point;
 
-class Resizer
+class Resizer implements ResizerInterface
 {
     /**
      * Instance of Imagine Interface.
@@ -31,12 +32,12 @@ class Resizer
     /**
      * Resize an image using the computed settings.
      *
-     * @param FileInterface $file
-     * @param Style         $style
+     * @param FileInterface  $file
+     * @param StyleInterface $style
      *
      * @return string
      */
-    public function resize(FileInterface $file, Style $style)
+    public function resize(FileInterface $file, StyleInterface $style)
     {
         $filePath = $this->randomFilePath($file->getFilename());
         list($width, $height, $option) = $this->parseStyleDimensions($style);
@@ -77,11 +78,11 @@ class Resizer
      * Parse the given style dimensions to extract out the file processing options,
      * perform any necessary image resizing for a given style.
      *
-     * @param Style $style
+     * @param StyleInterface $style
      *
      * @return array
      */
-    protected function parseStyleDimensions(Style $style)
+    protected function parseStyleDimensions(StyleInterface $style)
     {
         if (is_callable($style->dimensions)) {
             return [null, null, 'custom'];
@@ -319,9 +320,11 @@ class Resizer
 
     /**
      * Re-orient an image using its embedded Exif profile orientation:
-     * 1. Read the embedded exif data inside the image to determine it's orientation.
-     * 2. Rotate and flip the image accordingly to re-orient it.
-     * 3. Strip the Exif data from the image so that there can be no attempt to 'correct' it again.
+     * 1. Attempt to read the embedded exif data inside the image to determine it's orientation.
+     *    if there is no exif data (i.e an exeption is thrown when trying to read it) then we'll
+     *    just return the image as is.
+     * 2. If there is exif data, we'll rotate and flip the image accordingly to re-orient it.
+     * 3. Finally, we'll strip the exif data from the image so that there can be no attempt to 'correct' it again.
      *
      * @param string         $path
      * @param ImageInterface $image
@@ -330,37 +333,45 @@ class Resizer
      */
     protected function autoOrient($path, ImageInterface $image)
     {
-        $exif = exif_read_data($path);
-
-        if (isset($exif['Orientation'])) {
-            switch ($exif['Orientation']) {
-                case 2:
-                    $image->flipHorizontally();
-                    break;
-                case 3:
-                    $image->rotate(180);
-                    break;
-                case 4:
-                    $image->flipVertically();
-                    break;
-                case 5:
-                    $image->flipVertically()
-                        ->rotate(90);
-                    break;
-                case 6:
-                    $image->rotate(90);
-                    break;
-                case 7:
-                    $image->flipHorizontally()
-                        ->rotate(90);
-                    break;
-                case 8:
-                    $image->rotate(-90);
-                    break;
+        if (function_exists('exif_read_data')) {
+            try {
+                $exif = exif_read_data($path);
+            } catch (\ErrorException $e) {
+                return $image;
             }
-        }
 
-        return $image->strip();
+            if (isset($exif['Orientation'])) {
+                switch ($exif['Orientation']) {
+                    case 2:
+                        $image->flipHorizontally();
+                        break;
+                    case 3:
+                        $image->rotate(180);
+                        break;
+                    case 4:
+                        $image->flipVertically();
+                        break;
+                    case 5:
+                        $image->flipVertically()
+                            ->rotate(90);
+                        break;
+                    case 6:
+                        $image->rotate(90);
+                        break;
+                    case 7:
+                        $image->flipHorizontally()
+                            ->rotate(90);
+                        break;
+                    case 8:
+                        $image->rotate(-90);
+                        break;
+                }
+            }
+
+            return $image->strip();
+        } else {
+            return $image;
+        }
     }
 
     /**
